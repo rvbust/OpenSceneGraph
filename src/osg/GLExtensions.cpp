@@ -63,10 +63,6 @@ static osg::buffered_object<ExtensionSet> s_glExtensionSetList;
 static osg::buffered_object<std::string> s_glRendererList;
 static osg::buffered_value<int> s_glInitializedList;
 
-static osg::buffered_object<ExtensionSet> s_gluExtensionSetList;
-static osg::buffered_object<std::string> s_gluRendererList;
-static osg::buffered_value<int> s_gluInitializedList;
-
 static ApplicationUsageProxy GLEXtension_e0(ApplicationUsage::ENVIRONMENTAL_VARIABLE, "OSG_GL_EXTENSION_DISABLE <value>", "Use space deliminarted list of GL extensions to disable associated GL extensions");
 static ApplicationUsageProxy GLEXtension_e1(ApplicationUsage::ENVIRONMENTAL_VARIABLE, "OSG_MAX_TEXTURE_SIZE <value>", "Clamp the maximum GL texture size to specified value.");
 
@@ -459,7 +455,7 @@ GLExtensions::GLExtensions(unsigned int in_contextID):
     isVertexShaderSupported = validContext && (shadersBuiltIn || osg::isGLExtensionSupported(contextID,"GL_ARB_vertex_shader"));
     isFragmentShaderSupported = validContext && (shadersBuiltIn || osg::isGLExtensionSupported(contextID,"GL_ARB_fragment_shader"));
     isLanguage100Supported = validContext && (shadersBuiltIn || osg::isGLExtensionSupported(contextID,"GL_ARB_shading_language_100"));
-    isGeometryShader4Supported = validContext && (osg::isGLExtensionSupported(contextID,"GL_EXT_geometry_shader4") || osg::isGLExtensionSupported(contextID,"GL_OES_geometry_shader") || osg::isGLExtensionOrVersionSupported(contextID,"GL_ARB_geometry_shader4", 3.2f));
+    isGeometryShader4Supported = validContext && (osg::isGLExtensionSupported(contextID,"GL_EXT_geometry_shader4") || osg::isGLExtensionSupported(contextID,"GL_ARB_geometry_shader4"));
     isGpuShader4Supported = validContext && osg::isGLExtensionOrVersionSupported(contextID,"GL_EXT_gpu_shader4", 3.0f);
     areTessellationShadersSupported = validContext && (osg::isGLExtensionOrVersionSupported(contextID, "GL_ARB_tessellation_shader", 4.0f) || osg::isGLExtensionSupported(contextID,"GL_OES_tessellation_shader"));
     isUniformBufferObjectSupported = validContext && osg::isGLExtensionOrVersionSupported(contextID,"GL_ARB_uniform_buffer_object", 3.1f);
@@ -725,9 +721,9 @@ GLExtensions::GLExtensions(unsigned int in_contextID):
     setGLExtensionFuncPtr(glTexBuffer, "glTexBuffer","glTexBufferARB" , validContext);
 
     isVBOSupported = validContext && (OSG_GLES2_FEATURES || OSG_GLES3_FEATURES || OSG_GL3_FEATURES || osg::isGLExtensionSupported(contextID,"GL_ARB_vertex_buffer_object"));
-    isPBOSupported = validContext && (OSG_GLES3_FEATURES || OSG_GL3_FEATURES || osg::isGLExtensionSupported(contextID,"GL_ARB_pixel_buffer_object"));
+    isPBOSupported = validContext && ((OSG_GLES3_FEATURES && glVersion >= 3.0) || OSG_GL3_FEATURES || osg::isGLExtensionSupported(contextID,"GL_ARB_pixel_buffer_object"));
     isTBOSupported = validContext && osg::isGLExtensionSupported(contextID,"GL_ARB_texture_buffer_object");
-    isVAOSupported = validContext && (OSG_GLES3_FEATURES || OSG_GL3_FEATURES  || osg::isGLExtensionSupported(contextID, "GL_ARB_vertex_array_object", "GL_OES_vertex_array_object"));
+    isVAOSupported = validContext && ((OSG_GLES3_FEATURES && glVersion >= 3.0) || OSG_GL3_FEATURES || osg::isGLExtensionSupported(contextID, "GL_ARB_vertex_array_object", "GL_OES_vertex_array_object"));
     isTransformFeedbackSupported = validContext && osg::isGLExtensionSupported(contextID, "GL_ARB_transform_feedback2");
     isBufferObjectSupported = isVBOSupported || isPBOSupported;
 
@@ -1081,6 +1077,9 @@ GLExtensions::GLExtensions(unsigned int in_contextID):
 
 
     // FrameBufferObject
+    isMultisampledRenderToTextureSupported = validContext && isGLExtensionSupported(contextID, "GL_EXT_multisampled_render_to_texture");
+    isInvalidateFramebufferSupported = validContext && (isGLExtensionSupported(contextID, "GL_ARB_invalidate_subdata") || (OSG_GLES3_FEATURES && glVersion >= 3.0) || glVersion >= 4.3);
+
     setGLExtensionFuncPtr(glBindRenderbuffer, "glBindRenderbuffer", "glBindRenderbufferEXT", "glBindRenderbufferOES", validContext);
     setGLExtensionFuncPtr(glDeleteRenderbuffers, "glDeleteRenderbuffers", "glDeleteRenderbuffersEXT", "glDeleteRenderbuffersOES", validContext);
     setGLExtensionFuncPtr(glGenRenderbuffers, "glGenRenderbuffers", "glGenRenderbuffersEXT", "glGenRenderbuffersOES", validContext);
@@ -1094,6 +1093,7 @@ GLExtensions::GLExtensions(unsigned int in_contextID):
 
     setGLExtensionFuncPtr(glFramebufferTexture1D, "glFramebufferTexture1D", "glFramebufferTexture1DEXT", "glFramebufferTexture1DOES", validContext);
     setGLExtensionFuncPtr(glFramebufferTexture2D, "glFramebufferTexture2D", "glFramebufferTexture2DEXT", "glFramebufferTexture2DOES", validContext);
+    setGLExtensionFuncPtr(glFramebufferTexture2DMultisample, "glFramebufferTexture2DMultisample", "glFramebufferTexture2DMultisampleEXT", validContext);
     setGLExtensionFuncPtr(glFramebufferTexture3D, "glFramebufferTexture3D", "glFramebufferTexture3DEXT", "glFramebufferTexture3DOES", validContext);
     setGLExtensionFuncPtr(glFramebufferTexture, "glFramebufferTexture", "glFramebufferTextureEXT", "glFramebufferTextureOES", validContext);
     setGLExtensionFuncPtr(glFramebufferTextureLayer, "glFramebufferTextureLayer", "glFramebufferTextureLayerEXT", "glFramebufferTextureLayerOES", validContext);
@@ -1109,6 +1109,7 @@ GLExtensions::GLExtensions(unsigned int in_contextID):
 
     setGLExtensionFuncPtr(glGenerateMipmap, "glGenerateMipmap", "glGenerateMipmapEXT", "glGenerateMipmapOES", validContext);
     setGLExtensionFuncPtr(glBlitFramebuffer, "glBlitFramebuffer", "glBlitFramebufferEXT", "glBlitFramebufferOES", validContext);
+    setGLExtensionFuncPtr(glInvalidateFramebuffer, "glInvalidateFramebuffer", "glInvalidateFramebufferEXT", validContext);
     setGLExtensionFuncPtr(glGetRenderbufferParameteriv, "glGetRenderbufferParameteriv", "glGetRenderbufferParameterivEXT", "glGetRenderbufferParameterivOES", validContext);
 
 
@@ -1284,6 +1285,13 @@ GLExtensions::GLExtensions(unsigned int in_contextID):
 
 }
 
+GLExtensions::~GLExtensions()
+{
+    // Remove s_gl*List
+    s_glExtensionSetList[contextID] = ExtensionSet();
+    s_glRendererList[contextID] = std::string();
+    s_glInitializedList[contextID] = 0;
+}
 
 ///////////////////////////////////////////////////////////////////////////
 // C++-friendly convenience methods

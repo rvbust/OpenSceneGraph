@@ -172,7 +172,7 @@ OutputStream& OutputStream::operator<<( const osg::Vec4ui& v )
 
 
 OutputStream& OutputStream::operator<<( const osg::Quat& q )
-{ *this << q.x() << q.y() << q.z() << q.w(); return *this; }
+{ *this << (double)q.x() << (double)q.y() << (double)q.z() << (double)q.w(); return *this; }
 
 OutputStream& OutputStream::operator<<( const osg::Plane& p )
 { *this << (double)p[0] << (double)p[1] << (double)p[2] << (double)p[3]; return *this; }
@@ -493,6 +493,12 @@ void OutputStream::writeImage( const osg::Image* img )
             {
                 OSG_NOTICE<<"Empty Image::FileName resetting to image.dds"<<std::endl;
                 imageFileName = "image.dds";
+            }
+
+            std::string imagePath = osgDB::getFilePath(imageFileName);
+            if (!imagePath.empty() && !osgDB::fileExists(imagePath))
+            {
+                osgDB::makeDirectory(imagePath);
             }
 
             bool result = osgDB::writeImageFile( *img, imageFileName );
@@ -925,24 +931,31 @@ template<typename T>
 void OutputStream::writeArrayImplementation( const T* a, int write_size, unsigned int numInRow )
 {
     *this << write_size << BEGIN_BRACKET;
-    if ( numInRow>1 )
+    if ( isBinary() )
     {
-        for ( int i=0; i<write_size; ++i )
-        {
-            if ( !(i%numInRow) )
-            {
-                *this << std::endl << (*a)[i];
-            }
-            else
-                *this << (*a)[i];
-        }
-        *this << std::endl;
+        if (write_size) writeCharArray((char*)&((*a)[0]), write_size * sizeof((*a)[0]));
     }
     else
     {
-        *this << std::endl;
-        for ( int i=0; i<write_size; ++i )
-            *this << (*a)[i] << std::endl;
+        if ( numInRow>1 )
+        {
+            for ( int i=0; i<write_size; ++i )
+            {
+                if ( !(i%numInRow) )
+                {
+                    *this << std::endl << (*a)[i];
+                }
+                else
+                    *this << (*a)[i];
+            }
+            *this << std::endl;
+        }
+        else
+        {
+            *this << std::endl;
+            for ( int i=0; i<write_size; ++i )
+                *this << (*a)[i] << std::endl;
+        }
     }
     *this << END_BRACKET << std::endl;
 }
